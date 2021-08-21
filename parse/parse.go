@@ -1,5 +1,12 @@
 package parse
 
+import (
+	"archive-ingest/util"
+	"errors"
+	"regexp"
+	"strings"
+)
+
 type EntityType = int
 
 const (
@@ -8,13 +15,32 @@ const (
 )
 
 type Entity struct {
-	Filename string
-	Path     string
-	Type     EntityType
+	Filename, Author, Title, Publisher string
+	Tags                               []string
 }
 
-func ParseFilepath(filepath string) (Entity, error) {
-	var entity = Entity{Filename: "", Path: "", Type: FileType}
+var logger = util.NewLogger()
 
-	return entity, nil
+func ParseFilename(filename string) (*Entity, error) {
+	re := regexp.MustCompile(`\[(?P<Author>.+)\]\s(?P<Title>.+)\s\((?P<Publisher>.+)\)(\s{(?P<Tags>.+)})?\.zip`)
+	matches := re.FindStringSubmatch(filename)
+
+	if matches == nil || len(matches) < 3 {
+		return nil, errors.New("filename did not match known format")
+	}
+
+	entity := Entity{
+		Filename:  filename,
+		Author:    matches[1],
+		Title:     matches[2],
+		Publisher: matches[3],
+	}
+
+	if len(matches) > 4 {
+		entity.Tags = strings.Split(matches[5], " ")
+	}
+
+	logger.WithField("entity", entity).Info("parsed filename")
+
+	return &entity, nil
 }

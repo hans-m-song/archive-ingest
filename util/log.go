@@ -5,7 +5,7 @@ import (
 )
 
 func NewLogger() *logrus.Logger {
-	var logger = logrus.New()
+	logger := logrus.New()
 
 	logger.SetLevel(logrus.DebugLevel)
 

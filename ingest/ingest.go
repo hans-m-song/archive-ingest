@@ -5,6 +5,7 @@ import (
 	"archive-ingest/util"
 	"io/fs"
 	"os"
+	"regexp"
 
 	"github.com/sirupsen/logrus"
 )
@@ -20,8 +21,17 @@ func Read(rootDir string, callback func(parse.Entity)) error {
 			logger.Fatal(err)
 		}
 
+		if d.IsDir() {
+			return nil
+		}
+
+		valid, error := regexp.MatchString(`\.git`, d.Name())
+		if !valid || error != nil {
+			return nil
+		}
+
 		// TODO call parse on entry
-		logger.WithFields(logrus.Fields{"path": path, "dir": d}).Info("executing callback on entry")
+		logger.WithFields(logrus.Fields{"path": path}).Info("executing callback on entry")
 
 		return nil
 	})
