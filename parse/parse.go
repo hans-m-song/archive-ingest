@@ -7,13 +7,6 @@ import (
 	"strings"
 )
 
-type EntityType = int
-
-const (
-	FileType EntityType = iota
-	DirectoryType
-)
-
 type Entity struct {
 	Filename, Author, Title, Publisher string
 	Tags                               []string
@@ -22,7 +15,7 @@ type Entity struct {
 var logger = util.NewLogger()
 
 func ParseFilename(filename string) (*Entity, error) {
-	re := regexp.MustCompile(`\[(?P<Author>.+)\]\s(?P<Title>.+)\s\((?P<Publisher>.+)\)(\s{(?P<Tags>.+)})?\.zip`)
+	re := regexp.MustCompile(`\[(.+)\]\s(.+)\s\((.+)\)(\s{(.+)})?\.zip`)
 	matches := re.FindStringSubmatch(filename)
 
 	if matches == nil || len(matches) < 3 {

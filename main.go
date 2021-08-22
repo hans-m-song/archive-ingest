@@ -9,8 +9,11 @@ import (
 var logger = util.NewLogger()
 
 func main() {
-	logger.Info("hello world")
-	ingest.Read(".", func(entity parse.Entity) {
+	err := ingest.Read(".", func(entity *parse.Entity) {
 		logger.Info(entity)
 	})
+
+	if err != nil {
+		logger.Fatal(err)
+	}
 }

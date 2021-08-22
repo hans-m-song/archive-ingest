@@ -5,36 +5,37 @@ import (
 	"archive-ingest/util"
 	"io/fs"
 	"os"
-	"regexp"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
 
 var logger = util.NewLogger()
 
-func Read(rootDir string, callback func(parse.Entity)) error {
-	logger.WithField("rootDir", rootDir).Info("Read dir")
+func Read(rootDir string, callback func(*parse.Entity)) error {
+	logger.WithField("dir", rootDir).Info("reading dir")
 
-	var dir = os.DirFS(rootDir)
-	fs.WalkDir(dir, ".", func(path string, d fs.DirEntry, err error) error {
+	dir := os.DirFS(rootDir)
+
+	return fs.WalkDir(dir, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			logger.Fatal(err)
+			return err
 		}
 
-		if d.IsDir() {
+		if d.IsDir() || strings.HasPrefix(path, ".") {
 			return nil
 		}
 
-		valid, error := regexp.MatchString(`\.git`, d.Name())
-		if !valid || error != nil {
+		logger.WithFields(logrus.Fields{"path": path, "dir": d.IsDir()}).Debug("checking path")
+
+		entity, _ := parse.ParseFilename(d.Name())
+
+		if entity == nil {
 			return nil
 		}
 
-		// TODO call parse on entry
-		logger.WithFields(logrus.Fields{"path": path}).Info("executing callback on entry")
+		callback(entity)
 
 		return nil
 	})
-
-	return nil
 }
