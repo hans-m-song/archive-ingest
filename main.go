@@ -12,8 +12,8 @@ import (
 var logger = util.NewLogger()
 
 type ArchiveIngestArgs struct {
-	announcer          io.AnnouncerParameters
-	Dir, Queue, DbName string
+	announcer               io.AnnouncerParameters
+	Location, Queue, DbName string
 }
 
 func parseArgs() (*ArchiveIngestArgs, error) {
@@ -30,16 +30,16 @@ func parseArgs() (*ArchiveIngestArgs, error) {
 		return nil, errors.New("specify one of queue or dbName")
 	}
 
-	var dir, user, pass, host, port *string
+	var location, user, pass, host, port *string
 
 	if *dbName != "" {
-		dir = flag.String("dir", ".", "ingest directory")
+		location = flag.String("location", ".", "ingest directory or url (url currently unsupported)")
 		user = flag.String("user", "postgres", "postgres username")
 		pass = flag.String("pass", "postgres", "postgres password")
 		host = flag.String("host", "localhost", "postgres hostname")
 		port = flag.String("port", "5432", "postgres port")
 	} else if *queue != "" {
-		dir = flag.String("dir", ".", "ingest directory")
+		location = flag.String("dir", ".", "ingest directory")
 		user = flag.String("user", "guest", "rabbitmq username")
 		pass = flag.String("pass", "guest", "rabbitmq password")
 		host = flag.String("host", "localhost", "rabbitmq hostname")
@@ -55,9 +55,9 @@ func parseArgs() (*ArchiveIngestArgs, error) {
 			Host: *host,
 			Port: *port,
 		},
-		Dir:    *dir,
-		Queue:  *queue,
-		DbName: *dbName,
+		Location: *location,
+		Queue:    *queue,
+		DbName:   *dbName,
 	}
 
 	return args, nil
@@ -98,9 +98,9 @@ func main() {
 
 	defer announcer.Close()
 
-	logger.WithField("dir", args.Dir).Debug("ingesting directory")
+	logger.WithField("dir", args.Location).Debug("ingesting directory")
 
-	err = ingest.Read(args.Dir, func(entity *parse.Entity) {
+	err = ingest.Read(args.Location, func(entity *parse.Entity) {
 		err = announcer.Say(entity)
 		if err != nil {
 			logger.Fatal(err)
