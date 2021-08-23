@@ -5,62 +5,106 @@ import (
 	"archive-ingest/io"
 	"archive-ingest/parse"
 	"archive-ingest/util"
+	"errors"
 	"flag"
-	"os"
 )
 
 var logger = util.NewLogger()
 
 type ArchiveIngestArgs struct {
-	announcer io.AnnouncerParameters
+	announcer          io.AnnouncerParameters
+	Dir, Queue, DbName string
 }
 
-func parseArgs() *ArchiveIngestArgs {
-	user := flag.String("user", "guest", "rabbitmq username")
-	pass := flag.String("pass", "guest", "rabbitmq password")
-	host := flag.String("host", "localhost", "rabbitmq hostname")
-	port := flag.String("port", "5672", "rabbitmq port")
-	queue := flag.String("queue", "queue", "rabbitmq queue")
+func parseArgs() (*ArchiveIngestArgs, error) {
+	queue := flag.String("queue", "", "rabbitmq queue")
+	dbName := flag.String("dbName", "", "postgres db name")
 
 	flag.Parse()
 
-	return &ArchiveIngestArgs{
-		announcer: io.AnnouncerParameters{
-			User:  *user,
-			Pass:  *pass,
-			Host:  *host,
-			Port:  *port,
-			Queue: *queue,
-		},
+	if *dbName != "" && *queue != "" {
+		return nil, errors.New("specify exactly one of queue or dbName")
 	}
+
+	if *dbName == "" && *queue == "" {
+		return nil, errors.New("specify one of queue or dbName")
+	}
+
+	var dir, user, pass, host, port *string
+
+	if *dbName != "" {
+		dir = flag.String("dir", ".", "ingest directory")
+		user = flag.String("user", "postgres", "postgres username")
+		pass = flag.String("pass", "postgres", "postgres password")
+		host = flag.String("host", "localhost", "postgres hostname")
+		port = flag.String("port", "5432", "postgres port")
+	} else if *queue != "" {
+		dir = flag.String("dir", ".", "ingest directory")
+		user = flag.String("user", "guest", "rabbitmq username")
+		pass = flag.String("pass", "guest", "rabbitmq password")
+		host = flag.String("host", "localhost", "rabbitmq hostname")
+		port = flag.String("port", "5672", "rabbitmq port")
+	}
+
+	flag.Parse()
+
+	args := &ArchiveIngestArgs{
+		announcer: io.AnnouncerParameters{
+			User: *user,
+			Pass: *pass,
+			Host: *host,
+			Port: *port,
+		},
+		Dir:    *dir,
+		Queue:  *queue,
+		DbName: *dbName,
+	}
+
+	return args, nil
+}
+
+func selectAnnouncer(args *ArchiveIngestArgs) (string, io.AnnouncerControls, error) {
+	if args.DbName != "" && args.Queue != "" {
+		return "", nil, errors.New("specify exactly one of queue or dbName")
+	}
+
+	if args.Queue != "" {
+		return args.Queue, &io.RabbitAnnouncer{Params: args.announcer}, nil
+	}
+
+	if args.DbName != "" {
+		return args.DbName, &io.DbAnnouncer{Params: args.announcer}, nil
+	}
+
+	return "", nil, errors.New("specify one of queue or dbName")
 }
 
 func main() {
-	args := parseArgs()
+	args, err := parseArgs()
+	if err != nil {
+		logger.Fatal(err)
+	}
 
-	announcer := io.New(&args.announcer)
+	name, announcer, err := selectAnnouncer(args)
 
-	err := announcer.Connect()
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	err = announcer.Connect(name)
 	if err != nil {
 		logger.Fatal(err)
 	}
 
 	defer announcer.Close()
 
-	if len(os.Args) < 2 {
-		logger.Fatal("Usage: ./archive-ingest /path/to/directory")
-	}
+	logger.WithField("dir", args.Dir).Debug("ingesting directory")
 
-	rootDir := os.Args[1]
-
-	if len(rootDir) < 1 {
-		rootDir = "."
-	}
-
-	logger.Debug("ingesting directory " + rootDir)
-
-	err = ingest.Read(rootDir, func(entity *parse.Entity) {
-		announcer.Say(entity)
+	err = ingest.Read(args.Dir, func(entity *parse.Entity) {
+		err = announcer.Say(entity)
+		if err != nil {
+			logger.Fatal(err)
+		}
 	})
 
 	if err != nil {

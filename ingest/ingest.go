@@ -26,9 +26,11 @@ func Read(rootDir string, callback func(*parse.Entity)) error {
 			return nil
 		}
 
-		logger.WithFields(logrus.Fields{"path": path, "dir": d.IsDir()}).Debug("checking path")
+		entity, err := parse.ParseFilename(d.Name())
 
-		entity, _ := parse.ParseFilename(d.Name())
+		if err != nil {
+			logger.WithFields(logrus.Fields{"err": err, "file": d.Name()}).Warn("error parsing filename")
+		}
 
 		if entity == nil {
 			return nil

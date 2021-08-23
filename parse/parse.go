@@ -2,38 +2,46 @@ package parse
 
 import (
 	"archive-ingest/util"
-	"errors"
-	"regexp"
 	"strings"
+
+	"github.com/oriser/regroup"
 )
 
 type Entity struct {
-	Filename, Author, Title, Publisher string
-	Tags                               []string
+	Filename  string
+	Author    string `regroup:"Author"`
+	Title     string `regroup:"Title"`
+	Publisher string `regroup:"Publisher"`
+	Source    string `regroup:"Source"`
+	TagsRaw   string `regroup:"TagsRaw"`
+	Tags      []string
 }
 
 var logger = util.NewLogger()
 
+const rawRe = `\[(?P<Author>.*)\]\s` +
+	`(?P<Title>.*)\s` +
+	`\((?P<Publisher>.*)\)` +
+	`(\s⁅(?P<Source>.*)⁆)?` +
+	`(\s{(?P<TagsRaw>.*)})?` +
+	`\.zip`
+
+var re = regroup.MustCompile(rawRe)
+
 func ParseFilename(filename string) (*Entity, error) {
-	re := regexp.MustCompile(`\[(.+)\]\s(.+)\s\((.+)\)(\s{(.+)})?\.zip`)
-	matches := re.FindStringSubmatch(filename)
+	entity := &Entity{Filename: filename}
 
-	if matches == nil || len(matches) < 3 {
-		return nil, errors.New("filename did not match known format")
+	err := re.MatchToTarget(filename, entity)
+	if err != nil {
+		return nil, err
 	}
 
-	entity := Entity{
-		Filename:  filename,
-		Author:    matches[1],
-		Title:     matches[2],
-		Publisher: matches[3],
+	entity.Filename = filename
+	if entity.TagsRaw != "" {
+		entity.Tags = strings.Split(entity.TagsRaw, " ")
 	}
 
-	if len(matches) > 4 {
-		entity.Tags = strings.Split(matches[5], " ")
-	}
+	logger.WithField("entity", entity).Debug("successfully parsed")
 
-	logger.WithField("entity", entity).Info("parsed filename")
-
-	return &entity, nil
+	return entity, nil
 }
