@@ -6,7 +6,6 @@ require (
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/oriser/regroup v0.0.0-20210730155327-fca8d7531263
-	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/viper v1.8.1
 	github.com/streadway/amqp v1.0.0
