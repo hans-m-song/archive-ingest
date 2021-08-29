@@ -1,16 +1,12 @@
 package main
 
 import (
-	"archive-ingest/pkg/broker"
+	"archive-ingest/cmd"
 	"archive-ingest/pkg/config"
-	"archive-ingest/pkg/discover"
-	"archive-ingest/pkg/parse"
-	"errors"
 	"fmt"
 	"os"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -29,53 +25,7 @@ var (
 		DiscoverCmd,
 		IngestCmd,
 	)
-	ErrorDirRequired = errors.New(
-		"not enough arguments, please provide a directory",
-	)
 )
-
-func startDiscover() {
-	if len(os.Args) < 3 {
-		logrus.Fatal(ErrorDirRequired)
-	}
-
-	dir := os.Args[2]
-	logrus.WithField("dir", dir).Info("beginning discovery of directory")
-
-	announcer, err := broker.NewBroker()
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
-	queue := viper.GetString(config.RabbitmqQueue)
-	listener := func(entity *parse.Entity) {
-		if entity == nil {
-			return
-		}
-
-		message := broker.Message{Body: entity}
-		if err := announcer.SendMessage(queue, message); err != nil {
-			logrus.Warn(err)
-		}
-	}
-
-	if err := discover.Read(dir, listener); err != nil {
-		logrus.Fatal(err)
-	}
-
-	if err := announcer.Disconnect(); err != nil {
-		logrus.Fatal(err)
-	}
-}
-
-func startIngest() {
-	logrus.Info("beginning ingest")
-
-	// announcer, err := broker.NewBroker()
-	// if err != nil {
-	// 	logrusger.Fatal(err)
-	// }
-}
 
 func main() {
 	config.Setup()
@@ -87,11 +37,15 @@ func main() {
 	command := os.Args[1]
 
 	switch command {
+
 	case DiscoverCmd:
-		startDiscover()
+		cmd.StartDiscover()
+
 	case IngestCmd:
-		startIngest()
+		cmd.StartIngest()
+
 	default:
 		logrus.Fatal(ErrorInvalidCmd)
+
 	}
 }
