@@ -23,7 +23,7 @@ type Broker struct {
 	consumers  []string
 }
 
-type OnMessageCallback func(*Message)
+type OnMessageCallback func(*Message, amqp.Delivery)
 
 type BrokerControl interface {
 	Connect(params util.UrlParams) error
@@ -95,33 +95,28 @@ func (broker *Broker) Listen(queue string, callback OnMessageCallback) error {
 		WithFields(logrus.Fields{"consumer": tag.String(), "queue": queue}).
 		Info("broker consuming from queue")
 
-	go func() {
-		for delivery := range msgs {
-			if len(delivery.Body) < 1 {
-				return
-			}
-
-			logrus.
-				WithFields(logrus.Fields{
-					"queue":   queue,
-					"time":    delivery.Timestamp,
-					"size":    len(delivery.Body),
-					"pending": delivery.MessageCount,
-				}).
-				Debug("received message")
-
-			message := &Message{}
-			if err := json.Unmarshal(delivery.Body, message); err != nil {
-				logrus.WithField("err", err).Warn("error parsing delivery body")
-				return
-			}
-
-			callback(message)
+	for delivery := range msgs {
+		if len(delivery.Body) < 1 {
+			continue
 		}
-	}()
 
-	// listen forever
-	// <-make(chan bool)
+		logrus.
+			WithFields(logrus.Fields{
+				"queue":   queue,
+				"time":    delivery.Timestamp,
+				"size":    len(delivery.Body),
+				"pending": delivery.MessageCount,
+			}).
+			Debug("received message")
+
+		message := &Message{}
+		if err := json.Unmarshal(delivery.Body, message); err != nil {
+			logrus.WithField("err", err).Warn("error parsing delivery body")
+			continue
+		}
+
+		callback(message, delivery)
+	}
 
 	return nil
 }
