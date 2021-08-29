@@ -23,7 +23,7 @@ type Broker struct {
 	consumers  []string
 }
 
-type OnMessageCallback func(Message)
+type OnMessageCallback func(*Message)
 
 type BrokerControl interface {
 	Connect(params util.UrlParams) error
@@ -34,7 +34,7 @@ type BrokerControl interface {
 
 func (broker *Broker) Connect(params util.UrlParams) error {
 	if broker.ready {
-		logrus.Warn("Broker attempted to connect when already connected")
+		logrus.Warn("broker attempted to connect when already connected")
 		return nil
 	}
 
@@ -47,6 +47,8 @@ func (broker *Broker) Connect(params util.UrlParams) error {
 	broker.connection = connection
 	broker.channel = channel
 	broker.ready = true
+
+	logrus.Info("broker connected")
 
 	return nil
 }
@@ -77,38 +79,65 @@ func (broker *Broker) Listen(queue string, callback OnMessageCallback) error {
 		return err
 	}
 
-	consumerTag, err := uuid.NewV4()
+	tag, err := uuid.NewV4()
 	if err != nil {
 		return err
 	}
 
-	broker.consumers = append(broker.consumers, consumerTag.String())
+	broker.consumers = append(broker.consumers, tag.String())
 
-	msgs, err := broker.channel.Consume(queue, consumerTag.String(), true, false, false, false, nil)
+	msgs, err := broker.channel.Consume(queue, tag.String(), false, false, false, false, nil)
 	if err != nil {
 		return err
 	}
+
+	logrus.
+		WithFields(logrus.Fields{"consumer": tag.String(), "queue": queue}).
+		Info("broker consuming from queue")
 
 	go func() {
-		for msg := range msgs {
-			logrus.WithField("msg", msg).Debug("received message")
+		for delivery := range msgs {
+			if len(delivery.Body) < 1 {
+				return
+			}
+
+			logrus.
+				WithFields(logrus.Fields{
+					"queue":   queue,
+					"time":    delivery.Timestamp,
+					"size":    len(delivery.Body),
+					"pending": delivery.MessageCount,
+				}).
+				Debug("received message")
+
+			message := &Message{}
+			if err := json.Unmarshal(delivery.Body, message); err != nil {
+				logrus.WithField("err", err).Warn("error parsing delivery body")
+				return
+			}
+
+			callback(message)
 		}
 	}()
 
 	// listen forever
-	<-make(chan bool)
+	// <-make(chan bool)
 
 	return nil
 }
 
 func (broker *Broker) Disconnect() error {
 	if !broker.ready {
-		logrus.Warn("Broker attempted to disconnect when already disconnected")
+		logrus.Warn("broker attempted to disconnect when already disconnected")
 	}
 
-	var err error
+	for _, consumer := range broker.consumers {
+		if err := broker.channel.Cancel(consumer, false); err != nil {
+			return err
+		}
+	}
 
-	if err = broker.channel.Close(); err != nil {
+	if err := broker.channel.Close(); err != nil {
 		return err
 	}
 
@@ -116,13 +145,9 @@ func (broker *Broker) Disconnect() error {
 		return err
 	}
 
-	for _, consumer := range broker.consumers {
-		if err = broker.channel.Cancel(consumer, false); err != nil {
-			return err
-		}
-	}
-
 	broker.ready = false
+
+	logrus.Info("broker disconnected")
 
 	return nil
 }

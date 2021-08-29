@@ -37,7 +37,9 @@ func assertQueue(channel *amqp.Channel, queue string) error {
 		return err
 	}
 
-	logrus.WithField("name", q.Name).Debug("asserted queue")
+	logrus.
+		WithFields(logrus.Fields{"name": q.Name, "messages": q.Messages}).
+		Debug("asserted queue")
 
 	return nil
 }
