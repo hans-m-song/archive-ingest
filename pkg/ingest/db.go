@@ -1,12 +1,14 @@
 package ingest
 
 import (
+	"archive-ingest/pkg/config"
 	"archive-ingest/pkg/parse"
 	"archive-ingest/pkg/util"
 	"context"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 type ConnectionParams struct {
@@ -27,14 +29,13 @@ type IngesterControl interface {
 }
 
 func (i *Ingester) Connect(params ConnectionParams) error {
-	extra := "/" + params.Name
 	url, obscured := util.CreateConnectionUrl(util.UrlParams{
 		Protocol: "postgres",
 		User:     params.User,
 		Pass:     params.Pass,
 		Host:     params.Host,
 		Port:     params.Port,
-		Extra:    &extra,
+		Extra:    &params.Name,
 	})
 
 	logrus.WithField("url", obscured).Debug("attempting to connect to postgres")
@@ -46,7 +47,7 @@ func (i *Ingester) Connect(params ConnectionParams) error {
 
 	i.connection = connection
 
-	logrus.WithField("db", params.Name).Info("connected to db")
+	logrus.WithField("database", params.Name).Info("connected to database")
 
 	return nil
 }
@@ -81,7 +82,7 @@ func (i *Ingester) Digest(entity parse.Entity) error {
 	return nil
 }
 
-func (a *Ingester) Close() error {
+func (a *Ingester) Disconnect() error {
 	logrus.Debug("disconnecting ingester")
 
 	err := a.Flush()
@@ -90,4 +91,24 @@ func (a *Ingester) Close() error {
 	}
 
 	return a.connection.Close(context.Background())
+}
+
+func NewIngester() (*Ingester, error) {
+	// type check interface implementation
+	var _ IngesterControl = (*Ingester)(nil)
+
+	params := ConnectionParams{
+		User: viper.GetString(config.PostgresUser),
+		Pass: viper.GetString(config.PostgresPass),
+		Host: viper.GetString(config.PostgresHost),
+		Port: viper.GetString(config.PostgresPort),
+		Name: viper.GetString(config.PostgresDatabase),
+	}
+
+	ingester := Ingester{}
+	if err := ingester.Connect(params); err != nil {
+		return nil, err
+	}
+
+	return &ingester, nil
 }

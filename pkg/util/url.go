@@ -14,11 +14,11 @@ func CreateConnectionUrl(params UrlParams) (url, obscured string) {
 	extra := ""
 
 	if params.Extra != nil {
-		url += "/" + *params.Extra
+		extra += *params.Extra
 	}
 
 	url = fmt.Sprintf(
-		"%s://%s:%s@%s:%s%s",
+		"%s://%s:%s@%s:%s/%s",
 		params.Protocol,
 		params.User,
 		params.Pass,
@@ -30,7 +30,7 @@ func CreateConnectionUrl(params UrlParams) (url, obscured string) {
 	re := regexp.MustCompile(".")
 
 	obscured = fmt.Sprintf(
-		"%s://%s:%s@%s:%s%s",
+		"%s://%s:%s@%s:%s/%s",
 		params.Protocol,
 		params.User,
 		re.ReplaceAllString(params.Pass, "x"),
