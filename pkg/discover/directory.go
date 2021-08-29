@@ -4,15 +4,22 @@ import (
 	"archive-ingest/pkg/parse"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 )
 
-func Read(rootDir string, callback func(*parse.Entity)) error {
-	logrus.WithField("dir", rootDir).Info("reading dir")
+func pathToFile(root, path, name string) string {
+	fullPath := filepath.Join(root, path)
+	pathTo := strings.Replace(fullPath, name, "", 1)
+	return filepath.Clean(pathTo)
+}
 
-	dir := os.DirFS(rootDir)
+func Read(root string, callback func(*parse.Entity)) error {
+	logrus.WithField("dir", root).Info("reading dir")
+
+	dir := os.DirFS(root)
 
 	return fs.WalkDir(dir, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -26,19 +33,22 @@ func Read(rootDir string, callback func(*parse.Entity)) error {
 			return fs.SkipDir
 		}
 
-		entity, err := parse.ParseFilename(path, d.Name())
+		entity, err := parse.ParseFilename(d.Name())
 
 		if err != nil {
 			logrus.
 				WithFields(logrus.Fields{"err": err, "file": d.Name()}).
 				Warn("error parsing filename")
-		}
-
-		if entity == nil {
 			return nil
 		}
 
-		callback(entity)
+		if entity != nil {
+			entity.Filepath = pathToFile(root, path, d.Name())
+			logrus.
+				WithFields(logrus.Fields{"path": entity.Filepath, "name": entity.Title, "authors": entity.Authors}).
+				Debug("parsed entity")
+			callback(entity)
+		}
 
 		return nil
 	})
