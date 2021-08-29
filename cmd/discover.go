@@ -38,10 +38,12 @@ func StartDiscover() {
 
 	announcer := startAnnouncer()
 
-	defer util.CreateCleaner(func() {
+	cleaner := util.CreateCleaner(func() {
 		logrus.Debug("cleaning up")
 		util.FatalFunc(announcer.Disconnect)
-	})()
+	})
+
+	defer cleaner()
 
 	queue := viper.GetString(config.RabbitmqQueue)
 	listener := func(entity *parse.Entity) {

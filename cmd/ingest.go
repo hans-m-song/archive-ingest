@@ -36,11 +36,13 @@ func StartIngest() {
 	listener := startListener()
 	ingester := startIngester()
 
-	defer util.CreateCleaner(func() {
+	cleaner := util.CreateCleaner(func() {
 		logrus.Debug("cleaning up")
 		util.FatalFunc(listener.Disconnect)
 		util.FatalFunc(ingester.Disconnect)
 	})
+
+	defer cleaner()
 
 	if err := ingester.Init(); err != nil {
 		logrus.WithField("err", err).Fatal("error initialising ingester")
@@ -55,7 +57,7 @@ func StartIngest() {
 		}
 
 		if err := ingester.Digest(*entity); err != nil {
-			logrus.Warn("error digesting message contents, requeued")
+			logrus.WithField("err", err).Warn("error digesting message contents, requeued")
 			return
 		}
 	}
