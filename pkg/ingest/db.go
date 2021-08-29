@@ -5,6 +5,7 @@ import (
 	"archive-ingest/pkg/parse"
 	"archive-ingest/pkg/util"
 	"context"
+	"fmt"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/sirupsen/logrus"
@@ -42,12 +43,16 @@ func (i *Ingester) Connect(params ConnectionParams) error {
 
 	connection, err := pgx.Connect(context.Background(), url)
 	if err != nil {
-		logrus.Fatal(err)
+		logrus.WithField("err", err).Fatal("error connecting to database")
 	}
 
 	i.connection = connection
 
 	logrus.WithField("database", params.Name).Info("connected to database")
+
+	if i.batch == nil {
+		i.batch = &pgx.Batch{}
+	}
 
 	return nil
 }
@@ -64,10 +69,15 @@ func (i *Ingester) Flush() error {
 }
 
 func (i *Ingester) Init() error {
+	if i.batch == nil {
+		i.batch = &pgx.Batch{}
+	}
+
 	logrus.Info("initialising ingest tables")
 	queries := createIngestDbTables()
 
 	for _, query := range queries {
+		fmt.Println(query)
 		i.batch.Queue(query)
 	}
 
@@ -75,22 +85,66 @@ func (i *Ingester) Init() error {
 }
 
 func (i *Ingester) Digest(entity parse.Entity) error {
-	logrus.WithField("entity", entity).Debug("digesting new entity")
-	query := createEntityInsert(entity)
-	logrus.Debug(query)
+	logrus.WithField("entity", entity).Debug("digesting entity")
 
-	return nil
-}
-
-func (a *Ingester) Disconnect() error {
-	logrus.Debug("disconnecting ingester")
-
-	err := a.Flush()
+	logrus.WithField("authors", entity.Authors).Debug("inserting authors")
+	authorIds, err := insertMultiple(i.connection, "author", entity.Authors)
 	if err != nil {
 		return err
 	}
 
-	return a.connection.Close(context.Background())
+	logrus.WithField("tags", entity.Tags).Debug("inserting tags")
+	tagIds, err := insertMultiple(i.connection, "tag", entity.Tags)
+	if err != nil {
+		return err
+	}
+
+	logrus.WithField("collection", entity.Collection).Debug("inserting collection")
+	collectionId, err := insertIfNotExist(i.connection, "collection", entity.Collection)
+	if err != nil {
+		return err
+	}
+
+	logrus.WithField("publisher", entity.Publisher).Debug("inserting publisher")
+	publisherId, err := insertIfNotExist(i.connection, "publisher", entity.Publisher)
+	if err != nil {
+		return err
+	}
+
+	logrus.WithField("filename", entity.Filename).Debug("inserting entity")
+	entityId, err := insertEntity(
+		i.connection,
+		entity,
+		*publisherId,
+		*collectionId,
+		authorIds,
+		tagIds,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"authorIds":    authorIds,
+		"tagIds":       tagIds,
+		"collectionId": collectionId,
+		"publisherId":  publisherId,
+		"entityId":     entityId,
+	}).Debug("inserted entity")
+
+	return nil
+}
+
+func (i *Ingester) Disconnect() error {
+	logrus.Debug("disconnecting ingester")
+
+	err := i.Flush()
+	if err != nil {
+		return err
+	}
+
+	return i.connection.Close(context.Background())
 }
 
 func NewIngester() (*Ingester, error) {
@@ -105,7 +159,7 @@ func NewIngester() (*Ingester, error) {
 		Name: viper.GetString(config.PostgresDatabase),
 	}
 
-	ingester := Ingester{}
+	ingester := Ingester{batch: &pgx.Batch{}}
 	if err := ingester.Connect(params); err != nil {
 		return nil, err
 	}
