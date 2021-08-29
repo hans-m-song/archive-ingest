@@ -5,6 +5,7 @@ import (
 	"archive-ingest/pkg/config"
 	"archive-ingest/pkg/discover"
 	"archive-ingest/pkg/parse"
+	"archive-ingest/pkg/util"
 	"errors"
 	"os"
 
@@ -18,6 +19,15 @@ var (
 	)
 )
 
+func startAnnouncer() *broker.Broker {
+	announcer, err := broker.NewBroker()
+	if err != nil {
+		logrus.WithField("err", err).Fatal("error creating broker")
+	}
+
+	return announcer
+}
+
 func StartDiscover() {
 	if len(os.Args) < 3 {
 		logrus.Fatal(ErrorDirRequired)
@@ -26,16 +36,12 @@ func StartDiscover() {
 	dir := os.Args[2]
 	logrus.WithField("dir", dir).Info("beginning discovery of directory")
 
-	announcer, err := broker.NewBroker()
-	if err != nil {
-		logrus.WithField("err", err).Fatal("error creating broker")
-	}
+	announcer := startAnnouncer()
 
-	defer func() {
-		if err := announcer.Disconnect(); err != nil {
-			logrus.WithField("err", err).Fatal("error disconnecting broker")
-		}
-	}()
+	defer util.CreateCleaner(func() {
+		logrus.Debug("cleaning up")
+		util.FatalFunc(announcer.Disconnect)
+	})()
 
 	queue := viper.GetString(config.RabbitmqQueue)
 	listener := func(entity *parse.Entity) {
