@@ -15,3 +15,5 @@
 # vendor/
 
 archive-ingest
+config.yaml
+data

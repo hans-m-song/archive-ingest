@@ -1,15 +1,13 @@
 FROM golang:1-bullseye
 
-WORKDIR /archive-ingest
+WORKDIR /app
 
-COPY go.mod go.sum makefile ./
+COPY go.mod go.sum ./
 RUN go mod download
 
-COPY main.go ./
-COPY announcer ./announcer
-COPY ingest ./ingest
-COPY parse ./parse
-COPY util ./util
+COPY ./main.go ./
+COPY ./pkg ./pkg
 
-RUN go build
-ENTRYPOINT ./archive-ingest
+COPY ./makefile ./
+RUN make
+ENTRYPOINT ["./archive-ingest"]

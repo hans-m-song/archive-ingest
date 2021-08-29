@@ -1,113 +1,97 @@
 package main
 
 import (
-	"archive-ingest/ingest"
-	"archive-ingest/io"
-	"archive-ingest/parse"
-	"archive-ingest/util"
+	"archive-ingest/pkg/broker"
+	"archive-ingest/pkg/config"
+	"archive-ingest/pkg/discover"
+	"archive-ingest/pkg/parse"
 	"errors"
-	"flag"
+	"fmt"
+	"os"
+
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
-var logger = util.NewLogger()
+const (
+	DiscoverCmd = "discover"
+	IngestCmd   = "ingest"
+)
 
-type ArchiveIngestArgs struct {
-	announcer               io.AnnouncerParameters
-	Location, Queue, DbName string
+var (
+	ErrorCmdRequired = fmt.Errorf(
+		`not enough arguments, must be one of "%s" or "%s"`,
+		DiscoverCmd,
+		IngestCmd,
+	)
+	ErrorInvalidCmd = fmt.Errorf(
+		`invalid command, must be one of "%s" or "%s"`,
+		DiscoverCmd,
+		IngestCmd,
+	)
+	ErrorDirRequired = errors.New(
+		"not enough arguments, please provide a directory",
+	)
+)
+
+func startDiscover() {
+	if len(os.Args) < 3 {
+		logrus.Fatal(ErrorDirRequired)
+	}
+
+	dir := os.Args[2]
+	logrus.WithField("dir", dir).Info("beginning discovery of directory")
+
+	announcer, err := broker.NewBroker()
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	queue := viper.GetString(config.RabbitmqQueue)
+	listener := func(entity *parse.Entity) {
+		if entity == nil {
+			return
+		}
+
+		message := broker.Message{Body: entity}
+		if err := announcer.SendMessage(queue, message); err != nil {
+			logrus.Warn(err)
+		}
+	}
+
+	if err := discover.Read(dir, listener); err != nil {
+		logrus.Fatal(err)
+	}
+
+	if err := announcer.Disconnect(); err != nil {
+		logrus.Fatal(err)
+	}
 }
 
-func parseArgs() (*ArchiveIngestArgs, error) {
-	queue := flag.String("queue", "", "rabbitmq queue")
-	dbName := flag.String("dbName", "", "postgres db name")
+func startIngest() {
+	logrus.Info("beginning ingest")
 
-	flag.Parse()
-
-	if *dbName != "" && *queue != "" {
-		return nil, errors.New("specify exactly one of queue or dbName")
-	}
-
-	if *dbName == "" && *queue == "" {
-		return nil, errors.New("specify one of queue or dbName")
-	}
-
-	var location, user, pass, host, port *string
-
-	if *dbName != "" {
-		location = flag.String("location", ".", "ingest directory or url (url currently unsupported)")
-		user = flag.String("user", "postgres", "postgres username")
-		pass = flag.String("pass", "postgres", "postgres password")
-		host = flag.String("host", "localhost", "postgres hostname")
-		port = flag.String("port", "5432", "postgres port")
-	} else if *queue != "" {
-		location = flag.String("dir", ".", "ingest directory")
-		user = flag.String("user", "guest", "rabbitmq username")
-		pass = flag.String("pass", "guest", "rabbitmq password")
-		host = flag.String("host", "localhost", "rabbitmq hostname")
-		port = flag.String("port", "5672", "rabbitmq port")
-	}
-
-	flag.Parse()
-
-	args := &ArchiveIngestArgs{
-		announcer: io.AnnouncerParameters{
-			User: *user,
-			Pass: *pass,
-			Host: *host,
-			Port: *port,
-		},
-		Location: *location,
-		Queue:    *queue,
-		DbName:   *dbName,
-	}
-
-	return args, nil
-}
-
-func selectAnnouncer(args *ArchiveIngestArgs) (string, io.AnnouncerControls, error) {
-	if args.DbName != "" && args.Queue != "" {
-		return "", nil, errors.New("specify exactly one of queue or dbName")
-	}
-
-	if args.Queue != "" {
-		return args.Queue, &io.RabbitAnnouncer{Params: args.announcer}, nil
-	}
-
-	if args.DbName != "" {
-		return args.DbName, &io.DbAnnouncer{Params: args.announcer}, nil
-	}
-
-	return "", nil, errors.New("specify one of queue or dbName")
+	// announcer, err := broker.NewBroker()
+	// if err != nil {
+	// 	logrusger.Fatal(err)
+	// }
 }
 
 func main() {
-	args, err := parseArgs()
-	if err != nil {
-		logger.Fatal(err)
+	config.Setup()
+
+	if len(os.Args) < 2 {
+		logrus.Fatal(ErrorCmdRequired)
 	}
 
-	name, announcer, err := selectAnnouncer(args)
+	command := os.Args[1]
 
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	err = announcer.Connect(name)
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	defer announcer.Close()
-
-	logger.WithField("dir", args.Location).Debug("ingesting directory")
-
-	err = ingest.Read(args.Location, func(entity *parse.Entity) {
-		err = announcer.Say(entity)
-		if err != nil {
-			logger.Fatal(err)
-		}
-	})
-
-	if err != nil {
-		logger.Fatal(err)
+	switch command {
+	case DiscoverCmd:
+		startDiscover()
+	case IngestCmd:
+		startIngest()
+	default:
+		logrus.Fatal(ErrorInvalidCmd)
 	}
 }
