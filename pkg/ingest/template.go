@@ -32,15 +32,15 @@ WITH tmp AS (
 SELECT {{.Table}}_id FROM tmp
 UNION ALL
 SELECT {{.Table}}_id FROM {{.Table}}
-WHERE name = {{.Value}}`,
+WHERE name = '{{.Value}}'`,
 	)
 
 	templateCreateTable = createTemplate("CreateTable", `{{"" -}}
 CREATE TABLE IF NOT EXISTS {{.Table}} (
 	{{.Table}}_id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
 	{{- range $i, $element := .Columns}}
-		{{- if $i}}, {{end}}
-		{{$element}}{{end}}
+	{{- if $i}}, {{end}}
+	{{$element}}{{end}}
 )`,
 	)
 
@@ -54,7 +54,7 @@ VALUES (
 	'{{.Authors}}',
 	'{{.Tags}}',
 	{{.PublisherId}},
-	{{.CollectionId}},
+	{{.CollectionId}}
 )
 ON CONFLICT (filepath, filename) DO NOTHING
 RETURNING entity_id`,
@@ -64,7 +64,7 @@ RETURNING entity_id`,
 func templateToString(template *template.Template, data interface{}) string {
 	buf := &bytes.Buffer{}
 
-	if err := templateCreateTable.Execute(buf, data); err != nil {
+	if err := template.Execute(buf, data); err != nil {
 		logrus.WithField("err", err).Fatal("error executing template")
 	}
 
@@ -117,7 +117,7 @@ func insertEntityQuery(entity parse.Entity, params InsertEntityParams) string {
 		"Filepath":     entity.Filepath,
 		"Filename":     entity.Filename,
 		"Title":        entity.Title,
-		"AuthorId":     arrayValue(params.Authors),
+		"Authors":      arrayValue(params.Authors),
 		"Tags":         arrayValue(params.Tags),
 		"PublisherId":  params.PublisherId,
 		"CollectionId": params.CollectionId,

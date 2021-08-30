@@ -18,18 +18,3 @@ func CatchSignal(callback func()) {
 		callback()
 	}()
 }
-
-func CreateCleaner(callback func()) func() {
-	cleaned := false
-
-	cleaner := func() {
-		if !cleaned {
-			cleaned = true
-			callback()
-		}
-	}
-
-	CatchSignal(cleaner)
-
-	return cleaner
-}

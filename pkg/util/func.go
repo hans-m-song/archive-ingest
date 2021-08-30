@@ -1,15 +1,17 @@
 package util
 
-import "github.com/sirupsen/logrus"
+import (
+	"github.com/sirupsen/logrus"
+)
 
-func FatalFunc(callback func() error) {
+func FatalOnErr(callback func() error, message string) {
 	if err := callback(); err != nil {
-		logrus.WithField("err", err).Fatal("callback resulted in error")
+		logrus.WithField("err", err).Fatal(message)
 	}
 }
 
-func WarnFunc(callback func() error) {
+func WarnOnErr(callback func() error, message string) {
 	if err := callback(); err != nil {
-		logrus.WithField("err", err).Warn("callback resulted in error")
+		logrus.WithField("err", err).Warn(message)
 	}
 }

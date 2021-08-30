@@ -1,12 +1,16 @@
 package ingest
 
 import (
+	"archive-ingest/pkg/config"
 	"archive-ingest/pkg/parse"
 	"context"
 	"errors"
+	"fmt"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"golang.org/x/sync/errgroup"
 )
 
 func createNameTable(name string) string {
@@ -34,32 +38,35 @@ func createIngestDbTables() []string {
 	}
 }
 
-func insertIfNotExist(connection *pgx.Conn, name string, value string) (*int, error) {
-	var id *int
+func insertIfNotExist(connection *pgxpool.Pool, name string, value string) (*int, error) {
+	id := -1
 	query := insertNameQuery(name, value)
-	logrus.WithField("query", query).Debug("executing query")
 
-	if err := connection.QueryRow(context.Background(), query).Scan(id); err != nil {
+	if viper.GetViper().GetBool(config.DebugShowQueries) {
+		fmt.Println(query)
+	}
+
+	row := connection.QueryRow(context.Background(), query)
+
+	if err := row.Scan(&id); err != nil {
 		return nil, err
 	}
 
-	if id == nil {
+	if id < 0 {
 		return nil, errors.New("id not returned")
 	}
 
-	return id, nil
+	logrus.WithFields(logrus.Fields{"table": name, "value": value}).Debug("inserted row")
+	return &id, nil
 }
 
-func insertMultiple(connection *pgx.Conn, name string, values []string) ([]int, error) {
+func insertMultiple(connection *pgxpool.Pool, name string, values []string) ([]int, error) {
 	ids := make([]int, len(values))
 
 	for i, value := range values {
-		query := insertNameQuery(name, value)
-		logrus.WithField("query", query).Debug("executing query")
-
 		id, err := insertIfNotExist(connection, name, value)
 		if err != nil {
-			return ids, err
+			return nil, err
 		}
 
 		ids[i] = *id
@@ -68,29 +75,62 @@ func insertMultiple(connection *pgx.Conn, name string, values []string) ([]int, 
 	return ids, nil
 }
 
-func insertEntity(
-	connection *pgx.Conn,
-	entity parse.Entity,
-	publisherId, collectionId int,
-	authorIds, tagIds []int,
-) (*int, error) {
-	query := insertEntityQuery(
-		entity,
-		InsertEntityParams{
-			Authors: authorIds, Tags: tagIds,
-			PublisherId:  publisherId,
-			CollectionId: collectionId,
-		},
-	)
+func insertEntityDependencies(connection *pgxpool.Pool, entity *parse.Entity) (*InsertEntityParams, error) {
+	params := InsertEntityParams{}
 
-	var id *int
-	if err := connection.QueryRow(context.Background(), query).Scan(id); err != nil {
+	eg, _ := errgroup.WithContext(context.Background())
+
+	eg.Go(func() (err error) {
+		authorIds, err := insertMultiple(connection, "author", entity.Authors)
+		params.Authors = authorIds
+		return
+	})
+
+	eg.Go(func() (err error) {
+		tagIds, err := insertMultiple(connection, "tag", entity.Tags)
+		params.Tags = tagIds
+		return
+	})
+
+	eg.Go(func() (err error) {
+		collectionId, err := insertIfNotExist(connection, "collection", entity.Collection)
+		params.CollectionId = *collectionId
+		return
+	})
+
+	eg.Go(func() (err error) {
+		publisherId, err := insertIfNotExist(connection, "publisher", entity.Publisher)
+		params.PublisherId = *publisherId
+		return
+	})
+
+	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
 
-	if id == nil {
+	return &params, nil
+}
+
+func insertEntity(
+	connection *pgxpool.Pool,
+	entity parse.Entity,
+	params InsertEntityParams,
+) (*int, error) {
+	query := insertEntityQuery(entity, params)
+
+	if viper.GetViper().GetBool(config.DebugShowQueries) {
+		fmt.Println(query)
+	}
+
+	var id int
+	if err := connection.QueryRow(context.Background(), query).Scan(&id); err != nil {
+		return nil, err
+	}
+
+	if id < 1 {
 		return nil, errors.New("id not returned")
 	}
 
-	return id, nil
+	logrus.WithFields(logrus.Fields{"title": entity.Title}).Debug("inserted entity")
+	return &id, nil
 }

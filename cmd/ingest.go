@@ -36,13 +36,13 @@ func StartIngest() {
 	listener := startListener()
 	ingester := startIngester()
 
-	cleaner := util.CreateCleaner(func() {
-		logrus.Debug("cleaning up")
-		util.FatalFunc(listener.Disconnect)
-		util.FatalFunc(ingester.Disconnect)
-	})
+	cleanup := func() {
+		util.WarnOnErr(listener.Disconnect, "error disconnecting listener")
+		util.WarnOnErr(ingester.Disconnect, "error disconnecting ingester")
+	}
 
-	defer cleaner()
+	util.CatchSignal(cleanup)
+	defer cleanup()
 
 	if err := ingester.Init(); err != nil {
 		logrus.WithField("err", err).Fatal("error initialising ingester")
@@ -50,17 +50,28 @@ func StartIngest() {
 
 	queue := viper.GetString(config.RabbitmqQueue)
 	callback := func(message *broker.Message, delivery amqp.Delivery) {
+		resolve := func() error { return delivery.Ack(false) }
+		reject := func() error { return delivery.Nack(false, true) }
+
 		entity, err := parse.ParseObject(message.Body)
+
 		if err != nil {
 			logrus.WithField("body", message.Body).Warn("ignoring invalid message contents")
+			util.FatalOnErr(reject, "error nacking message")
 			return
 		}
 
 		if err := ingester.Digest(*entity); err != nil {
 			logrus.WithField("err", err).Warn("error digesting message contents, requeued")
+			util.FatalOnErr(reject, "error nacking message")
 			return
 		}
+
+		util.FatalOnErr(resolve, "error acking message")
 	}
 
-	util.FatalFunc(func() error { return listener.Listen(queue, callback) })
+	if err := listener.Listen(queue, callback); err != nil {
+		logrus.WithField("err", err).Fatal("error listening to queue")
+	}
+
 }

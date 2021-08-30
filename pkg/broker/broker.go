@@ -25,13 +25,6 @@ type Broker struct {
 
 type OnMessageCallback func(*Message, amqp.Delivery)
 
-type BrokerControl interface {
-	Connect(params util.UrlParams) error
-	SendMessage(queue string, message Message) error
-	Listen(queue string, callback OnMessageCallback) error
-	Disconnect() error
-}
-
 func (broker *Broker) Connect(params util.UrlParams) error {
 	if broker.ready {
 		logrus.Warn("broker attempted to connect when already connected")
@@ -96,14 +89,13 @@ func (broker *Broker) Listen(queue string, callback OnMessageCallback) error {
 		Info("broker consuming from queue")
 
 	for delivery := range msgs {
+		logrus.Debug("begin for loop body")
 		if len(delivery.Body) < 1 {
 			continue
 		}
 
 		logrus.
 			WithFields(logrus.Fields{
-				"queue":   queue,
-				"time":    delivery.Timestamp,
 				"size":    len(delivery.Body),
 				"pending": delivery.MessageCount,
 			}).
@@ -157,9 +149,6 @@ func NewBroker() (*Broker, error) {
 	}
 
 	broker := Broker{}
-
-	// typecheck interface implementation
-	var _ BrokerControl = (*Broker)(nil)
 
 	return &broker, broker.Connect(params)
 }

@@ -25,8 +25,9 @@ const (
 	RabbitmqPort  = "rabbitmq.port"
 	RabbitmqQueue = "rabbitmq.queue"
 
-	DebugLogLevel   = "debug.loglevel"
-	DebugShowCaller = "debug.showcaller"
+	DebugLogLevel    = "debug.loglevel"
+	DebugShowCaller  = "debug.showcaller"
+	DebugShowQueries = "debug.showqueries"
 )
 
 var (
@@ -50,7 +51,8 @@ func setupEnv() {
 		{path: RabbitmqQueue, defaultValue: "queue"},
 
 		{path: DebugLogLevel, defaultValue: string(debug)},
-		{path: DebugShowCaller, defaultValue: "true"},
+		{path: DebugShowCaller, defaultValue: "false"},
+		{path: DebugShowQueries, defaultValue: "false"},
 	}
 
 	viper.SetConfigType("yaml")
