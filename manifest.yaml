@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: archive-ingest-config
+data:
+  POSTGRES_USER: archive_ingester
+  POSTGRES_PASS: archive_ingester
+  POSTGRES_HOST: postgres-svc.postgres.svc
+  POSTGRES_DATABASE: archive_ingest
+  RABBITMQ_USER: HkyP6A9om5PFC9eCWXABwHLhSzqrS8U9
+  RABBITMQ_PASS: _A5Rv3KENLJX5wLr2ZW0zF4o4YqEJ6KH
+  RABBITMQ_HOST: rabbit.default.svc
+  DEBUG_LOG_LEVEL: debug
+  DEBUG_SHOW_CALLER: "false"
+  DEBUG_SHOW_QUERIES: "false"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: archive-ingest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: archive-ingest
+  template:
+    metadata:
+      labels:
+        app: archive-ingest
+    spec:
+      imagePullSecrets:
+        - name: registry-pull-credentials
+      containers:
+        - name: archive-ingest
+          image: registry.axatol.xyz/archive-ingest
+          args:
+            - ingest
+          envFrom:
+            - configMapRef:
+                name: archive-ingest-config
+          volumeMounts:
+            - name: archive-ingest-config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+      volumes:
+        - name: archive-ingest-config
+          configMap:
+            name: archive-ingest-config

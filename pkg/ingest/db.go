@@ -66,9 +66,7 @@ func (i *Ingester) Flush() error {
 	result := i.connection.SendBatch(context.Background(), i.batch)
 	logrus.WithField("actions", i.batch.Len()).Debug("batch flushed")
 
-	err := result.Close()
-
-	return err
+	return result.Close()
 }
 
 func (i *Ingester) Init() error {
@@ -87,9 +85,7 @@ func (i *Ingester) Init() error {
 		i.batch.Queue(query)
 	}
 
-	err := i.Flush()
-
-	return err
+	return i.Flush()
 }
 
 func (i *Ingester) Digest(entity parse.Entity) error {

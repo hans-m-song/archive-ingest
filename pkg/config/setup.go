@@ -13,21 +13,21 @@ type EnvSpec struct {
 }
 
 const (
-	PostgresUser     = "postgres.user"
-	PostgresPass     = "postgres.pass"
-	PostgresHost     = "postgres.host"
-	PostgresPort     = "postgres.port"
-	PostgresDatabase = "postgres.database"
+	PostgresUser     = "POSTGRES_USER"
+	PostgresPass     = "POSTGRES_PASS"
+	PostgresHost     = "POSTGRES_HOST"
+	PostgresPort     = "POSTGRES_PORT"
+	PostgresDatabase = "POSTGRES_DATABASE"
 
-	RabbitmqUser  = "rabbitmq.user"
-	RabbitmqPass  = "rabbitmq.pass"
-	RabbitmqHost  = "rabbitmq.host"
-	RabbitmqPort  = "rabbitmq.port"
-	RabbitmqQueue = "rabbitmq.queue"
+	RabbitmqUser  = "RABBITMQ_USER"
+	RabbitmqPass  = "RABBITMQ_PASS"
+	RabbitmqHost  = "RABBITMQ_HOST"
+	RabbitmqPort  = "RABBITMQ_PORT"
+	RabbitmqQueue = "RABBITMQ_QUEUE"
 
-	DebugLogLevel    = "debug.loglevel"
-	DebugShowCaller  = "debug.showcaller"
-	DebugShowQueries = "debug.showqueries"
+	DebugLogLevel    = "DEBUG_LOG_LEVEL"
+	DebugShowCaller  = "DEBUG_SHOW_CALLER"
+	DebugShowQueries = "DEBUG_SHOW_QUERIES"
 )
 
 var (
@@ -55,6 +55,7 @@ func setupEnv() {
 		{path: DebugShowQueries, defaultValue: "false"},
 	}
 
+	viper.AutomaticEnv()
 	viper.SetConfigType("yaml")
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
