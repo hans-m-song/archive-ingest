@@ -1,11 +1,12 @@
 package ingest
 
 import (
-	"archive-ingest/pkg/config"
-	"archive-ingest/pkg/parse"
-	"archive-ingest/pkg/util"
 	"context"
 	"fmt"
+
+	"github.com/hans-m-song/archive-ingest/pkg/config"
+	"github.com/hans-m-song/archive-ingest/pkg/parse"
+	"github.com/hans-m-song/archive-ingest/pkg/util"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"

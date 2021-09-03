@@ -1,10 +1,11 @@
 package main
 
 import (
-	"archive-ingest/cmd"
-	"archive-ingest/pkg/config"
 	"fmt"
 	"os"
+
+	"github.com/hans-m-song/archive-ingest/cmd"
+	"github.com/hans-m-song/archive-ingest/pkg/config"
 
 	"github.com/sirupsen/logrus"
 )

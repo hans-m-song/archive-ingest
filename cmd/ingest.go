@@ -1,11 +1,11 @@
 package cmd
 
 import (
-	"archive-ingest/pkg/broker"
-	"archive-ingest/pkg/config"
-	"archive-ingest/pkg/ingest"
-	"archive-ingest/pkg/parse"
-	"archive-ingest/pkg/util"
+	"github.com/hans-m-song/archive-ingest/pkg/broker"
+	"github.com/hans-m-song/archive-ingest/pkg/config"
+	"github.com/hans-m-song/archive-ingest/pkg/ingest"
+	"github.com/hans-m-song/archive-ingest/pkg/parse"
+	"github.com/hans-m-song/archive-ingest/pkg/util"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"

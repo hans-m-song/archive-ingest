@@ -1,11 +1,12 @@
 package discover
 
 import (
-	"archive-ingest/pkg/parse"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/hans-m-song/archive-ingest/pkg/parse"
 
 	"github.com/sirupsen/logrus"
 )

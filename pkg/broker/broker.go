@@ -1,9 +1,10 @@
 package broker
 
 import (
-	"archive-ingest/pkg/config"
-	"archive-ingest/pkg/util"
 	"encoding/json"
+
+	"github.com/hans-m-song/archive-ingest/pkg/config"
+	"github.com/hans-m-song/archive-ingest/pkg/util"
 
 	"github.com/gofrs/uuid"
 	"github.com/sirupsen/logrus"

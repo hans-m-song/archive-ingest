@@ -1,12 +1,13 @@
 package ingest
 
 import (
-	"archive-ingest/pkg/parse"
 	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/hans-m-song/archive-ingest/pkg/parse"
 
 	"github.com/sirupsen/logrus"
 )

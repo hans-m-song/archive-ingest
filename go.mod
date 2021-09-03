@@ -1,4 +1,4 @@
-module archive-ingest
+module github.com/hans-m-song/archive-ingest
 
 go 1.17
 

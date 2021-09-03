@@ -1,7 +1,7 @@
 package broker
 
 import (
-	"archive-ingest/pkg/util"
+	"github.com/hans-m-song/archive-ingest/pkg/util"
 
 	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
