@@ -9,7 +9,7 @@ import (
 )
 
 type EnvSpec struct {
-	path, defaultValue string
+	Path, DefaultValue string
 }
 
 const (
@@ -38,21 +38,21 @@ func setupEnv() {
 	debug, _ := logrus.DebugLevel.MarshalText()
 
 	defaults := []EnvSpec{
-		{path: PostgresUser, defaultValue: "postgres"},
-		{path: PostgresPass, defaultValue: "postgres"},
-		{path: PostgresHost, defaultValue: "localhost"},
-		{path: PostgresPort, defaultValue: "5432"},
-		{path: PostgresDatabase, defaultValue: "postgres"},
+		{Path: PostgresUser, DefaultValue: "postgres"},
+		{Path: PostgresPass, DefaultValue: "postgres"},
+		{Path: PostgresHost, DefaultValue: "localhost"},
+		{Path: PostgresPort, DefaultValue: "5432"},
+		{Path: PostgresDatabase, DefaultValue: "postgres"},
 
-		{path: RabbitmqUser, defaultValue: "guest"},
-		{path: RabbitmqPass, defaultValue: "guest"},
-		{path: RabbitmqHost, defaultValue: "localhost"},
-		{path: RabbitmqPort, defaultValue: "5672"},
-		{path: RabbitmqQueue, defaultValue: "queue"},
+		{Path: RabbitmqUser, DefaultValue: "guest"},
+		{Path: RabbitmqPass, DefaultValue: "guest"},
+		{Path: RabbitmqHost, DefaultValue: "localhost"},
+		{Path: RabbitmqPort, DefaultValue: "5672"},
+		{Path: RabbitmqQueue, DefaultValue: "queue"},
 
-		{path: DebugLogLevel, defaultValue: string(debug)},
-		{path: DebugShowCaller, defaultValue: "false"},
-		{path: DebugShowQueries, defaultValue: "false"},
+		{Path: DebugLogLevel, DefaultValue: string(debug)},
+		{Path: DebugShowCaller, DefaultValue: "false"},
+		{Path: DebugShowQueries, DefaultValue: "false"},
 	}
 
 	viper.AutomaticEnv()
@@ -61,7 +61,7 @@ func setupEnv() {
 	viper.AddConfigPath(".")
 
 	for _, spec := range defaults {
-		viper.SetDefault(spec.path, spec.defaultValue)
+		viper.SetDefault(spec.Path, spec.DefaultValue)
 	}
 
 	if err := viper.ReadInConfig(); err != nil {
