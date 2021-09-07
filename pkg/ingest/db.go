@@ -24,38 +24,26 @@ type Ingester struct {
 	batch      *pgx.Batch
 }
 
-func (i *Ingester) Connect(params ConnectionParams) error {
-	if i.ready {
-		logrus.Warn("attempting to connect when already connected")
-		return nil
-	}
-
+func ConnectToPostgres(params ConnectionParams) (*pgxpool.Pool, error) {
 	url, obscured := util.CreateConnectionUrl(util.UrlParams{
 		Protocol: "postgres",
 		User:     params.User,
 		Pass:     params.Pass,
 		Host:     params.Host,
 		Port:     params.Port,
-		Extra:    &params.Name,
+		Path:     params.Name,
 	})
 
 	logrus.WithField("url", obscured).Debug("attempting to connect to postgres")
 
 	connection, err := pgxpool.Connect(context.Background(), url)
 	if err != nil {
-		logrus.WithField("err", err).Fatal("error connecting to database")
+		return nil, err
 	}
-
-	i.connection = connection
 
 	logrus.WithField("database", params.Name).Info("connected to database")
 
-	if i.batch == nil {
-		i.batch = &pgx.Batch{}
-	}
-
-	i.ready = true
-	return nil
+	return connection, nil
 }
 
 func (i *Ingester) Flush() error {
@@ -138,9 +126,15 @@ func NewIngester() (*Ingester, error) {
 		Name: viper.GetString(config.PostgresDatabase),
 	}
 
-	ingester := Ingester{batch: &pgx.Batch{}}
-	if err := ingester.Connect(params); err != nil {
-		return nil, err
+	connection, err := ConnectToPostgres(params)
+	if err != nil {
+		logrus.WithField("err", err).Fatal("error connecting to database")
+	}
+
+	ingester := Ingester{
+		ready:      true,
+		connection: connection,
+		batch:      &pgx.Batch{},
 	}
 
 	return &ingester, nil
