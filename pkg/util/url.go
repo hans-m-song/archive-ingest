@@ -6,38 +6,32 @@ import (
 )
 
 type UrlParams struct {
-	Protocol, User, Pass, Host, Port string
-	Extra                            *string
+	Protocol, User, Pass, Host, Port, Path string
 }
 
-func CreateConnectionUrl(params UrlParams) (url, obscured string) {
-	extra := ""
+func CreateConnectionUrl(params UrlParams) (string, string) {
 
-	if params.Extra != nil {
-		extra += *params.Extra
-	}
-
-	url = fmt.Sprintf(
+	url := fmt.Sprintf(
 		"%s://%s:%s@%s:%s/%s",
 		params.Protocol,
 		params.User,
 		params.Pass,
 		params.Host,
 		params.Port,
-		extra,
+		params.Path,
 	)
 
 	re := regexp.MustCompile(".")
 
-	obscured = fmt.Sprintf(
+	obscured := fmt.Sprintf(
 		"%s://%s:%s@%s:%s/%s",
 		params.Protocol,
 		params.User,
 		re.ReplaceAllString(params.Pass, "x"),
 		params.Host,
 		params.Port,
-		extra,
+		params.Path,
 	)
 
-	return
+	return url, obscured
 }
