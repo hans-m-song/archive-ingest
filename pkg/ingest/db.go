@@ -128,7 +128,7 @@ func NewIngester() (*Ingester, error) {
 
 	connection, err := ConnectToPostgres(params)
 	if err != nil {
-		logrus.WithField("err", err).Fatal("error connecting to database")
+		return nil, err
 	}
 
 	ingester := Ingester{
